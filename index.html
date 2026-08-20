@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<!--
+  FitCut — 용량에 딱 맞게 자르는 WebP · 동영상 변환기
+  https://github.com/YOUR_USERNAME/fitcut
+  MIT License · 파일 하나로 동작하며 외부 의존성이 없습니다.
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1117">
+<title>FitCut — 용량에 딱 맞게 자르는 WebP·동영상 변환기</title>
+<meta name="description" content="동영상을 움직이는 WebP로 변환하고, 정해진 용량 제한에 맞춰 여러 조각으로 자동 분할합니다. 업로드 없이 기기 안에서만 처리됩니다.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="FitCut">
+<meta property="og:title" content="FitCut">
+<meta property="og:description" content="용량에 딱 맞게 자르는 WebP·동영상 변환기. 100% 기기 안에서 처리.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f1117'/%3E%3Cpath d='M14 20h36M14 32h24M14 44h30' stroke='%234ade80' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0f1117; --card:#181b24; --card2:#1e2230; --line:#2a2f40;
+    --text:#e8eaf2; --sub:#9aa1b5; --accent:#4ade80; --accent2:#22c55e;
+    --accent-ink:#052e13; --danger:#f87171; --warn:#fbbf24; --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:radial-gradient(1200px 600px at 50% -200px, #1a2033 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+    min-height:100vh; padding:20px 16px 48px;
+  }
+  .wrap{max-width:520px; margin:0 auto;}
+  header{text-align:center; margin:8px 0 20px;}
+  header h1{font-size:22px; margin:0 0 6px; letter-spacing:-0.02em;}
+  header h1 .dot{color:var(--accent);}
+  header p{margin:0; color:var(--sub); font-size:13px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px; margin-bottom:14px;
+  }
+  /* ---- file picker ---- */
+  .drop{
+    border:1.5px dashed #3a4158; border-radius:var(--radius); padding:24px 16px;
+    text-align:center; cursor:pointer; transition:border-color .15s, background .15s;
+    background:var(--card2);
+  }
+  .drop.drag{border-color:var(--accent); background:#1a2b22;}
+  .drop .icon{font-size:32px; line-height:1; margin-bottom:8px;}
+  .drop .t1{font-size:15px; font-weight:600;}
+  .drop .t2{font-size:12px; color:var(--sub); margin-top:6px; line-height:1.5;}
+  .drop.compact{padding:12px;}
+  .drop.compact .icon{display:none;}
+  .drop.compact .t2{display:none;}
+  #fileInput{display:none;}
+  /* ---- file list ---- */
+  #fileList{margin-top:12px; display:none;}
+  #fileList.show{display:block;}
+  .fitem{
+    display:flex; align-items:center; gap:10px; padding:10px;
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;
+  }
+  .fitem video{
+    width:72px; height:54px; object-fit:cover; border-radius:8px; background:#000;
+    border:1px solid var(--line); flex-shrink:0;
+  }
+  .fitem .meta{min-width:0; flex:1;}
+  .fitem .name{font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .fitem .detail{font-size:11px; color:var(--sub); margin-top:3px;}
+  .fitem .status{font-size:11px; margin-top:4px; font-weight:600; color:var(--sub);}
+  .fitem .status.run{color:var(--accent);}
+  .fitem .status.done{color:var(--accent);}
+  .fitem .status.fail{color:var(--danger);}
+  .fitem .status.warn{color:var(--warn);}
+  .fitem .rm{
+    background:none; border:none; color:var(--sub); font-size:18px; cursor:pointer;
+    padding:6px; flex-shrink:0; line-height:1;
+  }
+  .mini{height:5px; background:#141722; border-radius:99px; overflow:hidden; margin-top:6px; display:none;}
+  .mini.show{display:block;}
+  .mini>div{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),#86efac); border-radius:99px;}
+  .listActions{display:flex; gap:8px; margin-top:4px;}
+  .listActions button{
+    flex:1; background:none; border:1px solid var(--line); color:var(--sub);
+    border-radius:10px; padding:8px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  /* ---- settings ---- */
+  .sec-title{font-size:12px; font-weight:700; color:var(--sub); letter-spacing:.08em; margin:0 0 12px;}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .field{background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:10px 12px;}
+  .field.wide{grid-column:1 / -1;}
+  .field label{display:block; font-size:11px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  .field select,.field input[type=number]{
+    width:100%; background:transparent; border:none; color:var(--text);
+    font-size:15px; font-weight:600; outline:none; padding:0; font-family:inherit;
+  }
+  .field select option{background:var(--card2); color:var(--text);}
+  .field .hint{font-size:11px; color:var(--sub); margin-top:6px; line-height:1.5;}
+  .slider-field{grid-column:1 / -1;}
+  .slider-row{display:flex; align-items:center; gap:12px;}
+  .slider-row input[type=range]{flex:1; accent-color:var(--accent); height:28px;}
+  .slider-row .val{font-size:14px; font-weight:700; min-width:44px; text-align:right; color:var(--accent);}
+  .est{font-size:12px; color:var(--sub); margin-top:10px; text-align:center; line-height:1.6;}
+  .est b{color:var(--text);}
+  /* ---- buttons ---- */
+  .btn{
+    display:block; width:100%; border:none; border-radius:14px; padding:15px;
+    font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;
+    transition:transform .06s, opacity .15s;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent2)); color:var(--accent-ink);}
+  .btn.primary:disabled{opacity:.35; cursor:default;}
+  .btn.ghost{background:var(--card2); color:var(--text); border:1px solid var(--line); margin-top:10px;}
+  .btn.danger{background:transparent; color:var(--danger); border:1px solid #4a2a2a; margin-top:10px;}
+  /* ---- progress ---- */
+  #progressCard{display:none;}
+  #progressCard.show{display:block;}
+  .bar{height:10px; background:var(--card2); border-radius:99px; overflow:hidden; border:1px solid var(--line);}
+  .bar>div{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),#86efac); border-radius:99px; transition:width .2s;}
+  .ptext{display:flex; justify-content:space-between; font-size:12px; color:var(--sub); margin-top:8px; gap:10px;}
+  .ptext span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .phint{font-size:11px; color:var(--sub); text-align:center; margin-top:10px;}
+  /* ---- result ---- */
+  #resultCard{display:none;}
+  #resultCard.show{display:block;}
+  .rgroup{margin-bottom:14px;}
+  .rgroup>.gname{
+    font-size:11px; color:var(--sub); font-weight:700; margin:0 0 8px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .ritem{
+    display:flex; align-items:center; gap:10px; padding:10px;
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;
+  }
+  .ritem video{
+    width:84px; height:63px; object-fit:contain; border-radius:8px; flex-shrink:0;
+    background:#000; border:1px solid var(--line);
+  }
+  .ritem img{
+    width:84px; height:63px; object-fit:contain; border-radius:8px; flex-shrink:0;
+    background:repeating-conic-gradient(#20242f 0% 25%, #181b24 0% 50%) 0 0/16px 16px;
+    border:1px solid var(--line);
+  }
+  .ritem .meta{min-width:0; flex:1;}
+  .ritem .name{font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ritem .detail{font-size:11px; color:var(--sub); margin-top:3px; line-height:1.5;}
+  .ritem .warnline{font-size:11px; color:var(--warn); margin-top:3px;}
+  .racts{display:flex; flex-direction:column; gap:6px; flex-shrink:0;}
+  .racts button{
+    background:var(--card); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  .racts button.p{background:linear-gradient(180deg,var(--accent),var(--accent2)); color:var(--accent-ink); border:none;}
+  .rsummary{font-size:12px; color:var(--sub); text-align:center; margin:10px 0 12px; line-height:1.6;}
+  .rsummary b{color:var(--text);}
+  .notice{font-size:12px; color:var(--sub); text-align:center; margin-top:14px; line-height:1.6;}
+  #err{display:none; background:#2a1518; border:1px solid #4a2a2a; color:#fca5a5;
+    border-radius:12px; padding:12px; font-size:13px; margin-bottom:14px; line-height:1.5;}
+  footer{text-align:center; color:#565d73; font-size:11px; margin-top:24px; line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>FitCut<span class="dot">.</span></h1>
+    <p>용량에 딱 맞게 자릅니다 · WebP 변환 · 동영상 자르기<br>100% 기기 안에서 처리 · 업로드 없음</p>
+  </header>
+
+  <div id="err"></div>
+
+  <!-- 1. files -->
+  <div class="card">
+    <div class="drop" id="drop">
+      <div class="icon">🎬</div>
+      <div class="t1" id="dropT1">동영상 선택 (여러 개 가능)</div>
+      <div class="t2">탭하여 선택하거나 파일을 끌어다 놓으세요<br>MP4 · WebM · MOV · 3GP</div>
+    </div>
+    <input type="file" id="fileInput" accept="video/*" multiple>
+    <div id="fileList"></div>
+    <div class="listActions" id="listActions" style="display:none;">
+      <button id="clearBtn">모두 지우기</button>
+    </div>
+  </div>
+
+  <!-- 2. settings -->
+  <div class="card" id="settingsCard">
+    <p class="sec-title">변환 설정 (모든 파일에 적용)</p>
+    <div class="grid">
+      <div class="field wide">
+        <label>출력 형식</label>
+        <select id="outMode">
+          <option value="webp" selected>움직이는 WebP 만들기</option>
+          <option value="video">동영상 그대로 자르기 (mp4/webm)</option>
+        </select>
+        <div class="hint" id="modeHint"></div>
+      </div>
+      <div class="field wide">
+        <label>분할 방식</label>
+        <select id="segMode">
+          <option value="auto" selected>자동 — 크기 제한에 맞춰 알아서 자르기</option>
+          <option value="5">5초씩 자르기</option>
+          <option value="10">10초씩 자르기</option>
+          <option value="15">15초씩 자르기</option>
+          <option value="20">20초씩 자르기</option>
+          <option value="30">30초씩 자르기</option>
+          <option value="60">60초씩 자르기</option>
+          <option value="0">자르지 않기 (한 파일로)</option>
+        </select>
+        <div class="hint" id="segHint"></div>
+      </div>
+      <div class="field">
+        <label>시작 시간 (초)</label>
+        <input type="number" id="startSec" value="0" min="0" step="0.1" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>길이 (초, 0 = 끝까지)</label>
+        <input type="number" id="durSec" value="0" min="0" step="0.1" inputmode="decimal">
+      </div>
+      <div class="field" data-only="webp">
+        <label>초당 프레임 (FPS)</label>
+        <select id="fps">
+          <option value="5">5</option>
+          <option value="8">8</option>
+          <option value="10">10</option>
+          <option value="12">12</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+          <option value="24">24</option>
+          <option value="30">30</option>
+          <option value="60" selected>60</option>
+        </select>
+      </div>
+      <div class="field" data-only="webp">
+        <label>최대 가로 크기</label>
+        <select id="maxW">
+          <option value="240">240px</option>
+          <option value="360">360px</option>
+          <option value="480" selected>480px</option>
+          <option value="640">640px</option>
+          <option value="0">원본 (최대 1280px)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>조각당 크기 제한</label>
+        <select id="limitMB">
+          <option value="0">제한 없음</option>
+          <option value="5">5 MB</option>
+          <option value="10">10 MB</option>
+          <option value="20" selected>20 MB</option>
+          <option value="30">30 MB</option>
+          <option value="50">50 MB</option>
+          <option value="custom">직접 입력…</option>
+        </select>
+        <div id="limitCustomWrap" style="display:none; margin-top:8px;">
+          <input type="number" id="limitCustom" value="20" min="0.05" step="0.05" inputmode="decimal">
+          <div class="hint" style="margin-top:4px;">MB 단위 · 소수점 입력 가능 (예: 7.5)</div>
+        </div>
+      </div>
+      <div class="field" data-only="webp">
+        <label>동시 변환</label>
+        <select id="conc">
+          <option value="1" selected>순차 (안정적)</option>
+          <option value="2">2개 동시</option>
+          <option value="3">3개 동시</option>
+        </select>
+      </div>
+      <div class="field" data-only="webp">
+        <label>반복 재생</label>
+        <select id="loop">
+          <option value="0" selected>무한 반복</option>
+          <option value="1">1회</option>
+          <option value="3">3회</option>
+          <option value="5">5회</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>배속</label>
+        <select id="speed">
+          <option value="1" selected>1x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+          <option value="0.5">0.5x</option>
+        </select>
+      </div>
+      <div class="field" data-only="video">
+        <label>소리</label>
+        <select id="withAudio">
+          <option value="1" selected>포함</option>
+          <option value="0">제외 (무음)</option>
+        </select>
+      </div>
+      <div class="field" data-only="video">
+        <label>화질 (비트레이트)</label>
+        <select id="vbr">
+          <option value="0" selected>자동</option>
+          <option value="12000000">최고 (12 Mbps)</option>
+          <option value="8000000">아주 높음 (8 Mbps)</option>
+          <option value="4000000">높음 (4 Mbps)</option>
+          <option value="2000000">보통 (2 Mbps)</option>
+          <option value="1000000">낮음 (1 Mbps)</option>
+        </select>
+      </div>
+      <div class="field" data-only="webp">
+        <label>프레임 최적화</label>
+        <select id="optimize">
+          <option value="1" selected>켜기 (바뀐 부분만 저장)</option>
+          <option value="0">끄기 (매 프레임 통째로)</option>
+        </select>
+      </div>
+      <div class="field slider-field" data-only="webp">
+        <label>품질</label>
+        <div class="slider-row">
+          <input type="range" id="quality" min="30" max="95" value="80">
+          <span class="val" id="qualityVal">80</span>
+        </div>
+      </div>
+    </div>
+    <div class="est" id="est"></div>
+  </div>
+
+  <button class="btn primary" id="convertBtn" disabled>WebP 만들기</button>
+
+  <!-- 3. progress -->
+  <div class="card" id="progressCard">
+    <p class="sec-title" id="pTitle">변환 중…</p>
+    <div class="bar"><div id="barFill"></div></div>
+    <div class="ptext"><span id="pLabel">준비 중</span><span id="pCount"></span></div>
+    <div class="phint">변환하는 동안 화면을 켠 채로 유지해 주세요</div>
+    <button class="btn danger" id="cancelBtn">전체 취소</button>
+  </div>
+
+  <!-- 4. results -->
+  <div class="card" id="resultCard">
+    <p class="sec-title">완성! 🎉</p>
+    <div id="resultList"></div>
+    <div class="rsummary" id="rSummary"></div>
+    <button class="btn primary" id="saveAllBtn">전체 저장</button>
+    <button class="btn ghost" id="shareAllBtn">전체 공유</button>
+    <button class="btn ghost" id="againBtn">설정 바꿔서 다시 만들기</button>
+  </div>
+
+  <p class="notice">모든 변환은 이 기기 안에서만 처리됩니다.<br>동영상이 어디에도 업로드되지 않아요.</p>
+  <footer>FitCut · 안드로이드 Chrome 최적화 · MIT License<br>홈 화면에 추가하면 앱처럼 쓸 수 있습니다 (메뉴 → 홈 화면에 추가)</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- DOM ---------- */
+var $ = function(id){ return document.getElementById(id); };
+var fileInput=$('fileInput'), drop=$('drop'), fileListEl=$('fileList'),
+    convertBtn=$('convertBtn'), progressCard=$('progressCard'), resultCard=$('resultCard'),
+    barFill=$('barFill'), pTitle=$('pTitle'), pLabel=$('pLabel'), pCount=$('pCount'),
+    errBox=$('err'), estBox=$('est'), resultList=$('resultList');
+
+var MAXF=1200;        /* 조각 하나의 최대 프레임 수 (60fps × 20초) */
+var MAXSEC=20;        /* 자동 분할 시 조각 하나의 최대 길이(초) */
+var MAXTOTALF=12000;  /* 파일 하나에서 뽑을 수 있는 총 프레임 수 상한 */
+var MAXSEG=60;        /* 파일 하나가 만들 수 있는 최대 조각 수 */
+var CANCEL=new Error('__cancel__');
+var STOP={stop:true};
+var items=[], itemSeq=0;
+var converting=false, cancelAll=false, wakeLock=null;
+
+/* ---------- helpers ---------- */
+function showErr(msg){ errBox.style.display='block'; errBox.textContent=msg; }
+function clearErr(){ errBox.style.display='none'; }
+function fmtSize(b){
+  if(b>=1048576) return (b/1048576).toFixed(2)+' MB';
+  if(b>=1024) return (b/1024).toFixed(1)+' KB';
+  return b+' B';
+}
+function fmtTime(s){
+  if(!isFinite(s)) return '?';
+  var m=Math.floor(s/60), ss=(s-m*60);
+  return m>0 ? m+'분 '+ss.toFixed(1)+'초' : ss.toFixed(1)+'초';
+}
+function clock(s){
+  var t=Math.round(s), m=Math.floor(t/60), ss=t%60;
+  return m+':'+(ss<10?'0':'')+ss;
+}
+function pad2(n){ return (n<10?'0':'')+n; }
+function isCancelled(){ return cancelAll; }
+function withTimeout(p, ms, msg){
+  return new Promise(function(res,rej){
+    var to=setTimeout(function(){ rej(new Error(msg||'시간 초과')); }, ms);
+    p.then(function(v){ clearTimeout(to); res(v); }, function(e){ clearTimeout(to); rej(e); });
+  });
+}
+
+/* WebP 인코딩 지원 확인 */
+var canvasTest=document.createElement('canvas'); canvasTest.width=2; canvasTest.height=2;
+var webpOK = canvasTest.toDataURL('image/webp').indexOf('data:image/webp')===0;
+if(!webpOK){
+  showErr('이 브라우저는 WebP 인코딩을 지원하지 않습니다. 안드로이드에서는 Chrome, Samsung Internet 등을 사용해 주세요.');
+}
+
+/* ================================================================
+   인코더: 가능하면 Web Worker + OffscreenCanvas로 병렬 인코딩,
+   안 되면 메인 스레드 캔버스로 폴백
+================================================================ */
+var Enc=(function(){
+  var mode=null, initP=null, workers=[], rr=0, pending={}, idc=0, poolN=1;
+  var mc=null, mainQ=Promise.resolve();
+  var WSRC =
+    "self.onmessage=async function(e){var d=e.data;try{"+
+    "var c=new OffscreenCanvas(d.w,d.h);var x=c.getContext('2d',{alpha:false});"+
+    "x.drawImage(d.bmp,0,0,d.w,d.h);if(d.bmp.close)d.bmp.close();"+
+    "var b=await c.convertToBlob({type:'image/webp',quality:d.q});"+
+    "if(b.type!=='image/webp')throw new Error('no-webp');"+
+    "var a=await b.arrayBuffer();self.postMessage({id:d.id,buf:a},[a]);"+
+    "}catch(err){self.postMessage({id:d.id,error:String(err)});}}";
+  function onMsg(e){
+    var d=e.data, p=pending[d.id];
+    if(!p) return;
+    delete pending[d.id];
+    if(d.error) p.rej(new Error(d.error)); else p.res(new Uint8Array(d.buf));
+  }
+  function dispatch(bmp,w,h,q){
+    return new Promise(function(res,rej){
+      var id=++idc; pending[id]={res:res,rej:rej};
+      workers[rr++ % workers.length].postMessage({id:id,bmp:bmp,w:w,h:h,q:q},[bmp]);
+    });
+  }
+  function init(){
+    if(initP) return initP;
+    initP=(async function(){
+      try{
+        if(typeof Worker==='undefined' || typeof OffscreenCanvas==='undefined'
+           || typeof createImageBitmap!=='function') throw 0;
+        var t=new OffscreenCanvas(2,2); t.getContext('2d');
+        var tb=await t.convertToBlob({type:'image/webp',quality:0.8});
+        if(!tb || tb.type!=='image/webp') throw 0;
+        var url=URL.createObjectURL(new Blob([WSRC],{type:'text/javascript'}));
+        poolN=Math.max(1, Math.min(4, (navigator.hardwareConcurrency||2)-1));
+        for(var i=0;i<poolN;i++){
+          var w=new Worker(url); w.onmessage=onMsg; workers.push(w);
+        }
+        var c2=document.createElement('canvas'); c2.width=2; c2.height=2;
+        var bmp=await createImageBitmap(c2);
+        var out=await withTimeout(dispatch(bmp,2,2,0.8), 5000);
+        if(!out || out.length<12) throw 0;
+        mode='worker';
+      }catch(e){
+        workers.forEach(function(w){ try{w.terminate();}catch(_){ } });
+        workers=[]; poolN=1; mode='main';
+        mc=document.createElement('canvas');
+      }
+    })();
+    return initP;
+  }
+  function encode(src,w,h,q){
+    return init().then(function(){
+      if(mode==='worker' && src && typeof src.close==='function'){
+        return dispatch(src,w,h,q);
+      }
+      var job=mainQ.then(function(){
+        if(mc.width!==w) mc.width=w;
+        if(mc.height!==h) mc.height=h;
+        var ctx=mc.getContext('2d',{alpha:false});
+        ctx.drawImage(src,0,0,w,h);
+        if(src && typeof src.close==='function') src.close();
+        return new Promise(function(res,rej){
+          mc.toBlob(function(blob){
+            if(!blob){ rej(new Error('encode fail')); return; }
+            blob.arrayBuffer().then(function(ab){ res(new Uint8Array(ab)); }, rej);
+          }, 'image/webp', q);
+        });
+      });
+      mainQ=job.then(function(){}, function(){});
+      return job;
+    });
+  }
+  return { init:init, encode:encode, mode:function(){ return mode; }, poolSize:function(){ return poolN; } };
+})();
+
+var bitmapResizeOK=true;
+function grabBitmap(video,w,h){
+  if(typeof createImageBitmap!=='function') return Promise.resolve(null);
+  if(bitmapResizeOK){
+    try{
+      return createImageBitmap(video,{resizeWidth:w,resizeHeight:h,resizeQuality:'high'})
+        .catch(function(){ bitmapResizeOK=false; return createImageBitmap(video); });
+    }catch(e){ bitmapResizeOK=false; }
+  }
+  return createImageBitmap(video);
+}
+
+/* ================================================================
+   WebP muxer
+================================================================ */
+function le24(n){ return [n&255,(n>>8)&255,(n>>16)&255]; }
+function le32(n){ return [n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255]; }
+function fourcc(s){ return [s.charCodeAt(0),s.charCodeAt(1),s.charCodeAt(2),s.charCodeAt(3)]; }
+var HDR_BYTES=44;      /* RIFF(12) + VP8X(18) + ANIM(14) */
+var FRAME_OVERHEAD=25; /* ANMF 태그/크기(8) + 프레임 헤더(16) + 패딩(1) */
+
+function extractFrameChunks(bytes){
+  if(bytes.length<12 || bytes[0]!==0x52 || bytes[8]!==0x57) throw new Error('bad webp frame');
+  var pos=12, out=[], hasAlpha=false, size=0;
+  while(pos+8<=bytes.length){
+    var tag=String.fromCharCode(bytes[pos],bytes[pos+1],bytes[pos+2],bytes[pos+3]);
+    var sz=bytes[pos+4] | (bytes[pos+5]<<8) | (bytes[pos+6]<<16) | (bytes[pos+7]<<24);
+    var chunkTotal=8+sz+(sz&1);
+    if(tag==='ALPH'){ hasAlpha=true; out.push(bytes.subarray(pos,pos+chunkTotal)); size+=chunkTotal; }
+    else if(tag==='VP8 '||tag==='VP8L'){
+      if(tag==='VP8L' && sz>4 && (bytes[pos+8+4]>>4 & 1)) hasAlpha=true;
+      out.push(bytes.subarray(pos,pos+chunkTotal)); size+=chunkTotal;
+    }
+    pos+=chunkTotal;
+  }
+  if(!out.length) throw new Error('no image chunk in webp frame');
+  return { chunks:out, hasAlpha:hasAlpha, bytes:size };
+}
+
+function muxAnimatedWebP(frames, w, h, loopCount){
+  var anyAlpha=frames.some(function(f){ return f.hasAlpha; });
+  var parts=[];
+  parts.push(new Uint8Array(fourcc('VP8X').concat(le32(10),
+    [ (anyAlpha?0x10:0) | 0x02, 0,0,0 ], le24(w-1), le24(h-1))));
+  parts.push(new Uint8Array(fourcc('ANIM').concat(le32(6), [0,0,0,0], [loopCount&255,(loopCount>>8)&255])));
+  frames.forEach(function(f){
+    var payloadLen=16;
+    f.chunks.forEach(function(c){ payloadLen+=c.length; });
+    var fx=(f.x||0)>>1, fy=(f.y||0)>>1;
+    var fw=f.fw||w, fh=f.fh||h;
+    var head=fourcc('ANMF').concat(le32(payloadLen),
+      le24(fx), le24(fy), le24(fw-1), le24(fh-1),
+      le24(Math.max(1,Math.round(f.durMs))), [0x02]);   /* 블렌딩 안 함 · 캔버스 유지 */
+    parts.push(new Uint8Array(head));
+    f.chunks.forEach(function(c){ parts.push(c); });
+    if(payloadLen&1) parts.push(new Uint8Array([0]));
+  });
+  var total=0; parts.forEach(function(p){ total+=p.length; });
+  var out=new Uint8Array(12+total);
+  out.set(fourcc('RIFF'),0); out.set(le32(4+total),4); out.set(fourcc('WEBP'),8);
+  var off=12;
+  parts.forEach(function(p){ out.set(p,off); off+=p.length; });
+  return out;
+}
+
+/* ================================================================
+   프레임 차분: 직전 프레임과 달라진 사각형만 찾아낸다
+================================================================ */
+var DIFF_TOL=8;      /* 채널당 이 값 이하 차이는 "같음"으로 봄 */
+var ALIGN=16;        /* 매크로블록 경계에 맞춰야 이음매가 안 보임 */
+
+function diffBox(prev, cur, w, h){
+  var a=new Uint32Array(prev.buffer, prev.byteOffset, w*h);
+  var b=new Uint32Array(cur.buffer, cur.byteOffset, w*h);
+  var minX=w, minY=-1, maxX=-1, maxY=-1;
+  for(var y=0;y<h;y++){
+    var row=y*w, rowHit=false, lo=-1, hi=-1;
+    for(var x=0;x<w;x++){
+      var i=row+x;
+      if(a[i]===b[i]) continue;
+      var p=i<<2;
+      if(Math.abs(prev[p]-cur[p])<=DIFF_TOL &&
+         Math.abs(prev[p+1]-cur[p+1])<=DIFF_TOL &&
+         Math.abs(prev[p+2]-cur[p+2])<=DIFF_TOL) continue;
+      if(lo<0) lo=x;
+      hi=x; rowHit=true;
+    }
+    if(rowHit){
+      if(minY<0) minY=y;
+      maxY=y;
+      if(lo<minX) minX=lo;
+      if(hi>maxX) maxX=hi;
+    }
+  }
+  if(maxY<0) return null;                      /* 완전히 같은 프레임 */
+  var x0=Math.max(0, Math.floor(minX/ALIGN)*ALIGN);
+  var y0=Math.max(0, Math.floor(minY/ALIGN)*ALIGN);
+  var x1=Math.min(w, Math.ceil((maxX+1)/ALIGN)*ALIGN);
+  var y1=Math.min(h, Math.ceil((maxY+1)/ALIGN)*ALIGN);
+  if(x0&1) x0--;
+  if(y0&1) y0--;
+  return {x:x0, y:y0, w:Math.max(2,x1-x0), h:Math.max(2,y1-y0)};
+}
+
+function makeDiffer(w, h, enabled){
+  var canvas=document.createElement('canvas');
+  canvas.width=w; canvas.height=h;
+  var ctx=canvas.getContext('2d',{alpha:false, willReadFrequently:true});
+  var prev=null;
+  var canCrop=(typeof createImageBitmap==='function');
+  var full={x:0,y:0,w:w,h:h,key:true};
+  return {
+    canvas:canvas,
+    reset:function(){ prev=null; },
+    /* 현재 영상 프레임을 그린 뒤 인코딩할 사각형을 돌려준다 (null = 직전과 동일) */
+    analyze:function(video, forceKey){
+      ctx.drawImage(video, 0, 0, w, h);
+      if(!enabled || !canCrop) return full;
+      var cur=ctx.getImageData(0,0,w,h).data;
+      if(!prev || forceKey){ prev=cur; return full; }
+      var box=diffBox(prev, cur, w, h);
+      prev=cur;
+      if(!box) return null;
+      if(box.w*box.h > w*h*0.7) return full;   /* 거의 다 바뀌면 통째로가 더 쌈 */
+      box.key=false;
+      return box;
+    },
+    crop:function(box){
+      if(box.w===w && box.h===h && box.x===0 && box.y===0){
+        return canCrop ? createImageBitmap(canvas) : Promise.resolve(canvas);
+      }
+      return createImageBitmap(canvas, box.x, box.y, box.w, box.h);
+    }
+  };
+}
+
+/* ================================================================
+   세그멘터: 프레임 스트림 → 크기/길이 제한에 맞춘 여러 조각
+================================================================ */
+function Segmenter(cfg){
+  /* cfg: w,h,loop,baseDurMs,maxSlots,byteBudget,onSegment(bytes,info)
+     조각은 반드시 키프레임에서 시작해야 하므로 GOP 단위로 모았다가 넘긴다 */
+  var cur=[], curBytes=HDR_BYTES, gop=[], gopBytes=0, segIdx=0, stopped=false;
+
+  function closeSeg(endSlot){
+    if(!cur.length) return;
+    var s0=cur[0].s;
+    var frames=cur.map(function(f,i){
+      var e=(i+1<cur.length)?cur[i+1].s:endSlot;
+      var d=Math.round((e-s0)*cfg.baseDurMs)-Math.round((f.s-s0)*cfg.baseDurMs);
+      return {chunks:f.chunks, hasAlpha:f.hasAlpha, x:f.x, y:f.y, fw:f.fw, fh:f.fh,
+              durMs:Math.max(1,d)};
+    });
+    var data=muxAnimatedWebP(frames, cfg.w, cfg.h, cfg.loop);
+    var info={index:segIdx, frames:frames.length, startSlot:s0, endSlot:endSlot,
+              over: cfg.byteBudget ? data.length>cfg.byteBudget+HDR_BYTES : false};
+    cur=[]; curBytes=HDR_BYTES; segIdx++;
+    cfg.onSegment(data, info);
+    if(segIdx>=MAXSEG) stopped=true;
+  }
+  function commitGop(){
+    if(!gop.length) return;
+    var lastSlot=gop[gop.length-1].s+1;
+    var startSlot=cur.length?cur[0].s:gop[0].s;
+    var fits=(!cfg.byteBudget || curBytes+gopBytes<=cfg.byteBudget)
+          && (lastSlot-startSlot<=cfg.maxSlots);
+    if(cur.length && !fits) closeSeg(gop[0].s);
+    for(var i=0;i<gop.length;i++) cur.push(gop[i]);
+    curBytes+=gopBytes;
+    gop=[]; gopBytes=0;
+  }
+  return {
+    /* f: {chunks,hasAlpha,bytes,x,y,fw,fh,s,key} */
+    push:function(f){
+      if(stopped) return STOP;
+      if(f.key) commitGop();
+      gop.push(f); gopBytes+=f.bytes+FRAME_OVERHEAD;
+      return stopped?STOP:null;
+    },
+    finish:function(endSlot){
+      if(stopped) return;
+      commitGop();
+      closeSeg(endSlot);
+    },
+    count:function(){ return segIdx; },
+    stopped:function(){ return stopped; }
+  };
+}
+
+/* ================================================================
+   파일 목록
+================================================================ */
+drop.addEventListener('click', function(){ if(!converting) fileInput.click(); });
+drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('drag'); });
+drop.addEventListener('dragleave', function(){ drop.classList.remove('drag'); });
+drop.addEventListener('drop', function(e){
+  e.preventDefault(); drop.classList.remove('drag');
+  if(!converting && e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', function(){
+  if(fileInput.files && fileInput.files.length) addFiles(fileInput.files);
+  fileInput.value='';
+});
+$('clearBtn').addEventListener('click', function(){
+  if(converting) return;
+  items.forEach(cleanupItem); items=[];
+  renderList(); refreshUI();
+});
+
+function clearOutputs(it){
+  (it.outputs||[]).forEach(function(o){ if(o.url) URL.revokeObjectURL(o.url); });
+  it.outputs=[];
+}
+function cleanupItem(it){
+  if(it.url){ URL.revokeObjectURL(it.url); it.url=null; }
+  clearOutputs(it);
+}
+
+function addFiles(fileList){
+  clearErr();
+  resultCard.classList.remove('show');
+  var added=0;
+  for(var i=0;i<fileList.length;i++){
+    var f=fileList[i];
+    if(f.type && f.type.indexOf('video')!==0 && !/\.(mp4|webm|mov|3gp|m4v|mkv|avi)$/i.test(f.name)) continue;
+    var it={
+      id:++itemSeq, file:f, url:URL.createObjectURL(f),
+      duration:0, vw:0, vh:0,
+      status:'loading', progress:0, err:'', warn:'', outputs:[]
+    };
+    items.push(it); added++;
+    probeItem(it);
+  }
+  if(!added){ showErr('동영상 파일을 찾지 못했습니다.'); return; }
+  renderList(); refreshUI();
+}
+
+function probeItem(it){
+  var probe=document.createElement('video');
+  probe.preload='metadata'; probe.muted=true; probe.src=it.url;
+  var to=setTimeout(function(){ fail('시간 초과'); }, 15000);
+  function fail(msg){
+    clearTimeout(to);
+    it.status='error'; it.err='열 수 없음'+(msg?' ('+msg+')':'');
+    probe.onerror=null; probe.src=''; renderList(); refreshUI();
+  }
+  probe.onerror=function(){ fail(''); };
+  probe.onloadedmetadata=function(){
+    var finish=function(){
+      clearTimeout(to);
+      it.duration=probe.duration; it.vw=probe.videoWidth; it.vh=probe.videoHeight;
+      if(!it.vw || !it.vh || !isFinite(it.duration) || it.duration<=0){ fail('화면 정보 없음'); return; }
+      it.status='ready';
+      probe.onerror=null; probe.src='';
+      renderList(); refreshUI();
+    };
+    if(!isFinite(probe.duration)){
+      probe.currentTime=1e7;
+      probe.ontimeupdate=function(){ probe.ontimeupdate=null; probe.currentTime=0; finish(); };
+    } else finish();
+  };
+}
+
+function outTotal(it){
+  var n=0; it.outputs.forEach(function(o){ n+=o.blob.size; }); return n;
+}
+function statusText(it){
+  switch(it.status){
+    case 'loading': return '분석 중…';
+    case 'ready': return '대기';
+    case 'wait': return '대기 중';
+    case 'run': return '변환 중 '+Math.round(it.progress*100)+'%'
+      + (it.outputs.length ? ' · '+it.outputs.length+'조각 완료' : '');
+    case 'done': return '완료 · '+it.outputs.length+'조각 · '+fmtSize(outTotal(it))+(it.warn?' ⚠':'');
+    case 'fail': return '실패: '+it.err;
+    case 'cancel': return '취소됨'+(it.outputs.length?' ('+it.outputs.length+'조각 보관)':'');
+    case 'error': return it.err;
+  }
+  return '';
+}
+
+function renderList(){
+  fileListEl.innerHTML='';
+  fileListEl.classList.toggle('show', items.length>0);
+  $('listActions').style.display = items.length>1 && !converting ? 'flex':'none';
+  drop.classList.toggle('compact', items.length>0);
+  $('dropT1').textContent = items.length>0 ? '＋ 동영상 추가' : '동영상 선택 (여러 개 가능)';
+  items.forEach(function(it){
+    var row=document.createElement('div'); row.className='fitem';
+    var v=document.createElement('video');
+    v.muted=true; v.playsInline=true; v.preload='metadata'; v.src=it.url;
+    row.appendChild(v);
+    var meta=document.createElement('div'); meta.className='meta';
+    var nm=document.createElement('div'); nm.className='name'; nm.textContent=it.file.name;
+    var dt=document.createElement('div'); dt.className='detail';
+    dt.textContent = it.status==='loading' ? fmtSize(it.file.size)
+      : it.vw ? it.vw+'×'+it.vh+' · '+fmtTime(it.duration)+' · '+fmtSize(it.file.size)
+      : fmtSize(it.file.size);
+    var st=document.createElement('div'); st.className='status';
+    var mini=document.createElement('div'); mini.className='mini';
+    var miniFill=document.createElement('div'); mini.appendChild(miniFill);
+    meta.appendChild(nm); meta.appendChild(dt); meta.appendChild(st); meta.appendChild(mini);
+    row.appendChild(meta);
+    if(!converting){
+      var rm=document.createElement('button'); rm.className='rm'; rm.textContent='✕';
+      rm.addEventListener('click', function(){
+        cleanupItem(it);
+        items=items.filter(function(x){ return x!==it; });
+        renderList(); refreshUI();
+      });
+      row.appendChild(rm);
+    }
+    it.el={row:row, status:st, mini:mini, miniFill:miniFill};
+    updateItemRow(it);
+    fileListEl.appendChild(row);
+  });
+}
+
+function updateItemRow(it){
+  if(!it.el) return;
+  var cls = it.status==='run' ? ' run'
+    : it.status==='done' ? (it.warn?' warn':' done')
+    : (it.status==='fail'||it.status==='error') ? ' fail' : '';
+  it.el.status.className='status'+cls;
+  it.el.status.textContent=statusText(it);
+  it.el.mini.classList.toggle('show', it.status==='run');
+  it.el.miniFill.style.width=Math.round(it.progress*100)+'%';
+}
+
+function readyItems(){ return items.filter(function(it){ return it.status==='ready'; }); }
+
+function refreshUI(){
+  var n=readyItems().length, vid=$('outMode').value==='video';
+  convertBtn.disabled = (vid ? !pickVideoMime() : !webpOK) || n===0 || converting;
+  convertBtn.textContent = vid
+    ? (n>1 ? '동영상 '+n+'개 자르기' : '동영상 자르기')
+    : (n>1 ? 'WebP '+n+'개 파일 변환' : 'WebP 만들기');
+  updateEst();
+}
+
+/* ================================================================
+   설정
+================================================================ */
+$('quality').addEventListener('input', function(){ $('qualityVal').textContent=this.value; updateEst(); });
+['startSec','durSec','fps','maxW','speed','limitMB','limitCustom','conc','loop','segMode','outMode','withAudio','vbr','optimize'].forEach(function(id){
+  $(id).addEventListener('change', updateEst);
+  $(id).addEventListener('input', updateEst);
+});
+$('outMode').addEventListener('change', function(){ refreshUI(); });
+$('limitMB').addEventListener('change', function(){
+  if(this.value==='custom'){ applyModeUI(); $('limitCustom').focus(); }
+});
+
+function limitBytesNow(){
+  var v=$('limitMB').value;
+  var mb = (v==='custom') ? (parseFloat($('limitCustom').value)||0) : (parseFloat(v)||0);
+  return Math.max(0, Math.round(mb*1048576));
+}
+
+function getGlobalSettings(){
+  return {
+    outMode: $('outMode').value,
+    audio: $('withAudio').value==='1',
+    optimize: $('optimize').value==='1',
+    vbr: parseInt($('vbr').value,10)||0,
+    start: Math.max(0, parseFloat($('startSec').value)||0),
+    durIn: Math.max(0, parseFloat($('durSec').value)||0),
+    fps: parseInt($('fps').value,10),
+    speed: parseFloat($('speed').value),
+    maxW: parseInt($('maxW').value,10),
+    quality: Math.min(95, Math.max(30, parseInt($('quality').value,10)||80)),
+    loop: parseInt($('loop').value,10),
+    limitBytes: limitBytesNow(),
+    conc: parseInt($('conc').value,10)||1,
+    segMode: $('segMode').value
+  };
+}
+
+function planFor(it, g){
+  var avail=Math.max(0, it.duration - g.start);
+  var dur=(g.durIn===0 || g.durIn>avail) ? avail : g.durIn;
+  var srcW=it.vw||360, srcH=it.vh||360;
+  var capW=g.maxW===0 ? Math.min(srcW,1280) : Math.min(srcW,g.maxW);
+  var w=Math.max(2, Math.round(capW));
+  var h=Math.max(2, Math.round(w*srcH/srcW));
+  var split = g.segMode!=='0';
+  var segFrames = split
+    ? (g.segMode==='auto' ? Math.min(MAXF, Math.round(MAXSEC*g.fps))
+                          : Math.min(MAXF, Math.max(1, Math.round(parseFloat(g.segMode)*g.fps))))
+    : MAXF;
+  var frames=Math.floor(dur*g.fps);
+  var cap = split ? Math.min(MAXTOTALF, segFrames*MAXSEG) : MAXF;
+  var trimmed=false;
+  if(frames>cap){ frames=cap; dur=frames/g.fps; trimmed=true; }
+  frames=Math.max(1,frames);
+  return {
+    start:g.start, dur:dur, fps:g.fps, frames:frames, w:w, h:h,
+    speed:g.speed, baseDurMs:1000/g.fps/g.speed,
+    quality:g.quality, loop:g.loop, limitBytes:g.limitBytes,
+    split:split, segFrames:segFrames, trimmed:trimmed,
+    optimize:g.optimize,
+    kfEvery: split ? Math.max(1, g.fps) : 0,   /* 조각은 키프레임에서만 시작할 수 있음 */
+    segCount: split ? Math.ceil(frames/segFrames) : 1
+  };
+}
+
+function applyModeUI(){
+  var mode=$('outMode').value;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-only]'), function(el){
+    el.style.display = (el.getAttribute('data-only')===mode) ? '' : 'none';
+  });
+  $('limitCustomWrap').style.display = $('limitMB').value==='custom' ? 'block' : 'none';
+  var vmime = mode==='video' ? pickVideoMime() : null;
+  $('modeHint').textContent = mode==='webp'
+    ? '동영상을 움직이는 이미지(WebP)로 만듭니다. 소리는 들어가지 않아요.'
+    : (vmime ? '원본 화질·소리 그대로 잘라서 '+(vmime.indexOf('mp4')>=0?'mp4':'webm')+' 파일로 저장합니다. 재생하며 처리해서 자를 구간 길이만큼 시간이 걸려요 (배속을 올리면 그만큼 빨라집니다).'
+             : '이 브라우저는 동영상 저장을 지원하지 않습니다. Chrome 등에서 열어 주세요.');
+}
+
+function updateEst(){
+  applyModeUI();
+  var g=getGlobalSettings();
+  var vid=g.outMode==='video';
+  var hint;
+  if(g.segMode==='0') hint = vid ? '자르지 않고 선택한 구간 하나만 뽑아냅니다.'
+                                : '영상 전체를 한 파일로 만듭니다. 크기 제한이 있으면 품질을 낮춰서 맞춥니다.';
+  else if(g.segMode==='auto') hint = vid
+      ? (g.limitBytes ? '조각이 '+fmtSize(g.limitBytes)+'에 도달하면 거기서 끊고 다음 조각을 시작합니다.'
+                      : '크기 제한이 없어서 한 파일로 나옵니다. 제한을 정하거나 N초씩을 골라 주세요.')
+      : '조각 하나가 '+(g.limitBytes?fmtSize(g.limitBytes)+' 또는 ':'')+MAXSEC+'초를 넘기 직전에 잘라서 여러 개로 만듭니다.';
+  else hint=g.segMode+'초씩 자릅니다.'+(g.limitBytes?' 조각이 크기 제한을 넘으면 그보다 먼저 자릅니다.':'');
+  $('segHint').textContent=hint;
+
+  var ready=readyItems();
+  if(!ready.length){ estBox.textContent=''; return; }
+
+  if(vid){
+    var totalSec=0, segs=0;
+    ready.forEach(function(it){
+      var p=planVideo(it,g);
+      totalSec+=p.dur;
+      segs+=p.segSec ? Math.max(1,Math.ceil(p.dur/p.segSec)) : 1;
+    });
+    var work=totalSec/(g.speed||1);
+    estBox.innerHTML='<b>'+ready.length+'개 파일</b> · 총 <b>'+fmtTime(totalSec)+'</b>'
+      +'<br>결과 <b>'+segs+'개'+(g.limitBytes&&g.segMode==='auto'?' 이상':'')+'</b> 조각 예상'
+      +(g.limitBytes?' · 조각당 <b>'+fmtSize(g.limitBytes)+' 이하</b>':'')
+      +'<br>처리 시간 약 <b>'+fmtTime(work)+'</b> (실시간 처리)';
+    return;
+  }
+
+  var totalFrames=0, minSeg=0, trimmedAny=false, tSec=0;
+  ready.forEach(function(it){
+    var p=planFor(it,g);
+    totalFrames+=p.frames; tSec+=p.dur; minSeg+=p.segCount;
+    if(p.trimmed) trimmedAny=true;
+  });
+  var html='<b>'+ready.length+'개 파일</b> · 총 <b>'+fmtTime(tSec)+'</b> · <b>'+totalFrames+'프레임</b>';
+  if(g.segMode==='0') html+='<br>결과 <b>'+ready.length+'개</b> 파일';
+  else html+='<br>결과 <b>'+minSeg+'개'+(g.limitBytes&&g.segMode==='auto'?' 이상':'')+'</b> 조각 예상'
+    +(g.limitBytes?' · 조각당 <b>'+fmtSize(g.limitBytes)+' 이하</b>':'');
+  if(trimmedAny) html+='<br>⚠ 너무 길어서 앞부분 일부만 변환됩니다 (FPS를 낮추면 더 길게 가능)';
+  estBox.innerHTML=html;
+}
+
+/* ================================================================
+   시킹 유틸
+================================================================ */
+function seekTo(video, t){
+  return new Promise(function(res){
+    var done=false;
+    var to=setTimeout(function(){ if(!done){ done=true; cleanup(); res(); } }, 4000);
+    function onSeek(){
+      if(done) return;
+      done=true; clearTimeout(to); cleanup();
+      setTimeout(res, 15);
+    }
+    function cleanup(){ video.removeEventListener('seeked', onSeek); }
+    video.addEventListener('seeked', onSeek);
+    var target=Math.min(t, Math.max(0,(video.duration||t)-0.001));
+    if(Math.abs((video.currentTime||0)-target)<0.0001){ done=true; clearTimeout(to); cleanup(); setTimeout(res,15); return; }
+    video.currentTime=target;
+  });
+}
+function videoReady(video){
+  return new Promise(function(res,rej){
+    if(video.readyState>=2){ res(); return; }
+    var to=setTimeout(res, 8000);
+    video.onloadeddata=function(){ clearTimeout(to); res(); };
+    video.onerror=function(){ clearTimeout(to); rej(new Error('동영상을 열 수 없습니다')); };
+  });
+}
+
+/* ================================================================
+   품질 자동 조절 (분할하지 않을 때만 사용)
+================================================================ */
+function makeQC(q0, minQ, maxQ, budget){
+  var q=q0, acc=0, n=0;
+  return {
+    q:function(){ return q/100; },
+    report:function(bytes){
+      if(!budget) return;
+      acc+=bytes; n++;
+      if(n>=8){
+        var avg=acc/n; acc=0; n=0;
+        if(avg>budget*1.15) q=Math.max(minQ, q-6);
+        else if(avg>budget*1.02) q=Math.max(minQ, q-2);
+        else if(avg<budget*0.6) q=Math.min(maxQ, q+2);
+      }
+    }
+  };
+}
+
+async function pickTune(video, p){
+  var w=p.w, h=p.h, userQ=p.quality;
+  if(!p.limitBytes) return {w:w, h:h, q:userQ, budget:0};
+  var perBudget=p.limitBytes*0.90/p.frames;
+  var n=Math.min(8, p.frames);
+  var canSnap=(typeof createImageBitmap==='function');
+  var masters=[], sampleTimes=[];
+  for(var i=0;i<n;i++) sampleTimes.push(p.start + p.dur*(i+0.5)/n);
+
+  async function measure(q){
+    var tot=0;
+    if(canSnap && masters.length===n){
+      await Promise.all(masters.map(function(m){
+        return createImageBitmap(m).then(function(c){ return Enc.encode(c,w,h,q/100); })
+          .then(function(b){ tot+=b.length; });
+      }));
+    } else {
+      for(var i=0;i<n;i++){
+        if(isCancelled()) throw CANCEL;
+        await seekTo(video, sampleTimes[i]);
+        var b=await Enc.encode(video,w,h,q/100);
+        tot+=b.length;
+      }
+    }
+    return tot/n;
+  }
+  try{
+    if(canSnap){
+      for(var i=0;i<n;i++){
+        if(isCancelled()) throw CANCEL;
+        await seekTo(video, sampleTimes[i]);
+        var bmp=await grabBitmap(video, p.w, p.h);
+        if(!bmp){ masters=[]; break; }
+        masters.push(bmp);
+      }
+    }
+    var avg=await measure(userQ);
+    if(avg<=perBudget) return {w:w, h:h, q:userQ, budget:perBudget};
+    var loAvg=await measure(30), shrink=0;
+    while(loAvg>perBudget && w>160 && shrink<5){
+      var r=Math.sqrt(perBudget/loAvg)*0.95;
+      var nw=Math.max(160, Math.round(w*Math.max(0.5, Math.min(0.9, r))));
+      if(nw>=w) nw=Math.round(w*0.85);
+      h=Math.max(2, Math.round(h*nw/w)); w=Math.max(2,nw);
+      shrink++; loAvg=await measure(30);
+    }
+    var lo=30, hi=userQ;
+    for(var iter=0; iter<4 && lo<hi; iter++){
+      var mid=Math.ceil((lo+hi)/2);
+      if(await measure(mid)<=perBudget) lo=mid; else hi=mid-1;
+    }
+    return {w:w, h:h, q:Math.max(30,Math.min(lo,userQ)), budget:perBudget};
+  } finally {
+    masters.forEach(function(m){ try{m.close();}catch(_){ } });
+  }
+}
+
+/* ================================================================
+   프레임 캡처 ① 재생 기반 (requestVideoFrameCallback)
+   sink(frame) — STOP 반환 시 캡처 중단
+================================================================ */
+function capturePlayback(video, p, tune, qc, onProg, sink, differ){
+  return new Promise(function(resolve, reject){
+    var caps=[], emitPtr=0, emitted=0;
+    var inflight=0, nextSlot=0, stopping=false, finished=false, failed=null;
+    var HIGH=Math.max(4, Enc.poolSize()*2), LOW=2;
+    var endTime=p.start+p.dur, lastBeat=performance.now(), pausedByUs=false;
+    var nextKey=0;
+
+    function beat(){ lastBeat=performance.now(); }
+    var watchdog=setInterval(function(){
+      if(finished) return;
+      if(document.hidden){ beat(); return; }
+      if(performance.now()-lastBeat>20000) fail(new Error('진행이 멈췄습니다'));
+    }, 3000);
+    function onVis(){
+      if(finished||failed) return;
+      if(document.hidden){ try{video.pause();}catch(_){ } }
+      else if(!stopping && !pausedByUs){ video.play().catch(function(){}); }
+    }
+    document.addEventListener('visibilitychange', onVis);
+    function cleanup(){
+      clearInterval(watchdog);
+      document.removeEventListener('visibilitychange', onVis);
+      video.removeEventListener('ended', stopCapture);
+    }
+    function fail(e){
+      if(failed||finished) return;
+      failed=e;
+      try{video.pause();}catch(_){ }
+      finishCheck();
+    }
+    function tryEmit(force){
+      while(emitPtr<caps.length){
+        var c=caps[emitPtr];
+        if(!c.fr) break;
+        var hasNext=emitPtr+1<caps.length;
+        if(!hasNext && !force) break;
+        var r=sink(c.fr);
+        c.fr=null; emitPtr++; emitted++;
+        if(r===STOP){ stopCapture(); return; }
+      }
+    }
+    function finishCheck(){
+      if(finished) return;
+      if((stopping||failed) && inflight===0){
+        finished=true; cleanup();
+        try{video.pause();}catch(_){ }
+        if(failed){ failed.emitted=emitted; reject(failed); return; }
+        tryEmit(true);
+        if(!emitted){ var e=new Error('프레임을 얻지 못했습니다'); e.emitted=0; reject(e); return; }
+        resolve(nextSlot);
+      }
+    }
+    function stopCapture(){
+      if(stopping) return;
+      stopping=true;
+      try{video.pause();}catch(_){ }
+      finishCheck();
+    }
+    function encodeCap(idx, box, slot){
+      inflight++;
+      differ.crop(box).then(function(src){
+        if(failed||isCancelled()){ if(src&&src.close){try{src.close();}catch(_){ }} throw failed||CANCEL; }
+        return Enc.encode(src, box.w, box.h, qc.q());
+      }).then(function(bytes){
+        var fr=extractFrameChunks(bytes);
+        fr.x=box.x; fr.y=box.y; fr.fw=box.w; fr.fh=box.h; fr.s=slot; fr.key=!!box.key;
+        caps[idx].fr=fr;
+        qc.report(bytes.length);
+        beat();
+        if(!failed) tryEmit(false);
+      }).catch(function(e){
+        fail(e===CANCEL?CANCEL:e);
+      }).then(function(){
+        inflight--;
+        if(!stopping && !failed && pausedByUs && inflight<=LOW){
+          pausedByUs=false;
+          if(!document.hidden) video.play().catch(function(){});
+        }
+        finishCheck();
+      });
+    }
+    function onFrame(now, meta){
+      if(finished||failed||stopping) return;
+      if(isCancelled()){ fail(CANCEL); return; }
+      beat();
+      var mt=meta.mediaTime, passed=0;
+      while(nextSlot<p.frames && p.start+nextSlot/p.fps <= mt+1e-4){ nextSlot++; passed++; }
+      if(passed>0){
+        var slot=nextSlot-passed;
+        var forceKey=(slot>=nextKey);
+        if(forceKey && p.kfEvery) nextKey=(Math.floor(slot/p.kfEvery)+1)*p.kfEvery;
+        else if(forceKey) nextKey=Infinity;
+        var box=differ.analyze(video, forceKey);
+        if(box){
+          var idx=caps.length;
+          caps.push({fr:null});
+          encodeCap(idx, box, slot);
+        }
+      }
+      onProg(Math.min(nextSlot,p.frames), p.frames);
+      if(nextSlot>=p.frames || mt>=endTime-1e-4){ stopCapture(); return; }
+      if(inflight>=HIGH && !video.paused){ pausedByUs=true; video.pause(); }
+      video.requestVideoFrameCallback(onFrame);
+    }
+
+    video.addEventListener('ended', stopCapture);
+    seekTo(video, p.start).then(function(){
+      try{ video.playbackRate=Math.min(4, Math.max(1, Math.round(30/p.fps))); }catch(_){ }
+      video.requestVideoFrameCallback(onFrame);
+      return video.play();
+    }).catch(function(){}).then(function(){
+      setTimeout(function(){
+        if(!finished && !stopping && !failed && caps.length===0 && video.paused && !pausedByUs){
+          fail(new Error('재생을 시작할 수 없습니다'));
+        }
+      }, 6000);
+    });
+  });
+}
+
+/* ---------- 프레임 캡처 ② 시킹 기반 (폴백) ---------- */
+async function captureSeek(video, p, tune, qc, onProg, sink, differ){
+  var nextKey=0;
+  for(var i=0;i<p.frames;i++){
+    if(isCancelled()) throw CANCEL;
+    await seekTo(video, p.start + i/p.fps);
+    var forceKey=(i>=nextKey);
+    if(forceKey) nextKey = p.kfEvery ? (Math.floor(i/p.kfEvery)+1)*p.kfEvery : Infinity;
+    var box=differ.analyze(video, forceKey);
+    onProg(i+1, p.frames);
+    if(!box) continue;
+    var src=await differ.crop(box);
+    var bytes=await Enc.encode(src, box.w, box.h, qc.q());
+    var fr=extractFrameChunks(bytes);
+    fr.x=box.x; fr.y=box.y; fr.fw=box.w; fr.fh=box.h; fr.s=i; fr.key=!!box.key;
+    qc.report(bytes.length);
+    if(sink(fr)===STOP) return i+1;
+  }
+  return p.frames;
+}
+
+function captureFrames(video, p, tune, qc, onProg, sink, differ){
+  var useRVFC = typeof video.requestVideoFrameCallback==='function';
+  if(useRVFC){
+    return capturePlayback(video, p, tune, qc, onProg, sink, differ).catch(function(e){
+      if(e===CANCEL) throw e;
+      if(e && e.emitted) throw e;
+      differ.reset && differ.reset();
+      return captureSeek(video, p, tune, qc, onProg, sink, differ);
+    });
+  }
+  return captureSeek(video, p, tune, qc, onProg, sink, differ);
+}
+
+/* ================================================================
+   동영상 그대로 자르기 (MediaRecorder)
+================================================================ */
+var VIDEO_TYPES=[
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+  'video/mp4;codecs=avc1,mp4a.40.2',
+  'video/mp4;codecs=avc1',
+  'video/mp4',
+  'video/webm;codecs=vp9,opus',
+  'video/webm;codecs=vp8,opus',
+  'video/webm'
+];
+var _vmime;
+function pickVideoMime(){
+  if(_vmime!==undefined) return _vmime;
+  _vmime=null;
+  if(typeof MediaRecorder!=='undefined' && MediaRecorder.isTypeSupported){
+    for(var i=0;i<VIDEO_TYPES.length;i++){
+      if(MediaRecorder.isTypeSupported(VIDEO_TYPES[i])){ _vmime=VIDEO_TYPES[i]; break; }
+    }
+  }
+  return _vmime;
+}
+
+/* --- WebM은 녹화 직후 재생 길이 정보가 없어서 직접 채워 넣는다 --- */
+function ebmlId(u8,p){
+  var f=u8[p], n=1;
+  while(n<=4 && !(f & (0x80>>(n-1)))) n++;
+  if(n>4) return null;
+  var v=0;
+  for(var i=0;i<n;i++) v=v*256+u8[p+i];
+  return {val:v, len:n};
+}
+function ebmlVint(u8,p){
+  var f=u8[p], n=1;
+  while(n<=8 && !(f & (0x80>>(n-1)))) n++;
+  if(n>8) return null;
+  var first=f & (0xFF>>n), all=(first===(0xFF>>n)), v=first;
+  for(var i=1;i<n;i++){ if(u8[p+i]!==0xFF) all=false; v=v*256+u8[p+i]; }
+  return {val:v, len:n, unknown:all};
+}
+function fixWebmDuration(u8, durMs){
+  try{
+    var p=0, segData=-1;
+    while(p<u8.length){
+      var a=ebmlId(u8,p); if(!a) return u8;
+      var b=ebmlVint(u8,p+a.len); if(!b) return u8;
+      var d=p+a.len+b.len;
+      if(a.val===0x18538067){ segData=d; break; }
+      if(b.unknown) return u8;
+      p=d+b.val;
+    }
+    if(segData<0) return u8;
+    var q=segData, infoAt=-1, infoIdLen=0, infoSzLen=0, infoSz=0, infoData=-1;
+    while(q<u8.length){
+      var c=ebmlId(u8,q); if(!c) break;
+      var e=ebmlVint(u8,q+c.len); if(!e) break;
+      var d2=q+c.len+e.len;
+      if(c.val===0x114D9B74) return u8;           /* SeekHead 있으면 위치가 깨지므로 건드리지 않음 */
+      if(c.val===0x1549A966){ infoAt=q; infoIdLen=c.len; infoSzLen=e.len; infoSz=e.val; infoData=d2; break; }
+      if(e.unknown) break;
+      q=d2+e.val;
+    }
+    if(infoAt<0) return u8;
+    var scale=1000000, r=infoData, durAt=-1;
+    while(r<infoData+infoSz){
+      var f1=ebmlId(u8,r); if(!f1) break;
+      var f2=ebmlVint(u8,r+f1.len); if(!f2) break;
+      var d3=r+f1.len+f2.len;
+      if(f1.val===0x2AD7B1){ scale=0; for(var i2=0;i2<f2.val;i2++) scale=scale*256+u8[d3+i2]; }
+      if(f1.val===0x4489) durAt=d3;
+      r=d3+f2.val;
+    }
+    var value=durMs*1e6/(scale||1000000);
+    if(durAt>=0){
+      new DataView(u8.buffer, u8.byteOffset+durAt, 8).setFloat64(0, value, false);
+      return u8;
+    }
+    var add=new Uint8Array(11);
+    add[0]=0x44; add[1]=0x89; add[2]=0x88;
+    new DataView(add.buffer).setFloat64(3, value, false);
+    var newSz=infoSz+11, maxLen=Math.pow(2,7*infoSzLen)-2;
+    if(newSz>maxLen) return u8;
+    var szB=new Uint8Array(infoSzLen), tmp=newSz;
+    for(var k=infoSzLen-1;k>=0;k--){ szB[k]=tmp&255; tmp=Math.floor(tmp/256); }
+    szB[0]|=(0x80>>(infoSzLen-1));
+    var out=new Uint8Array(u8.length+11);
+    out.set(u8.subarray(0,infoAt+infoIdLen),0);
+    out.set(szB, infoAt+infoIdLen);
+    out.set(u8.subarray(infoData, infoData+infoSz), infoData);
+    out.set(add, infoData+infoSz);
+    out.set(u8.subarray(infoData+infoSz), infoData+infoSz+11);
+    return out;
+  }catch(err){ return u8; }
+}
+
+function planVideo(it, g){
+  var avail=Math.max(0, it.duration - g.start);
+  var dur=(g.durIn===0 || g.durIn>avail) ? avail : g.durIn;
+  var segSec=0;
+  if(g.segMode!=='0' && g.segMode!=='auto') segSec=Math.max(1, parseFloat(g.segMode));
+  var vbr=g.vbr;
+  if(!vbr){
+    var px=(it.vw||640)*(it.vh||360);
+    vbr=Math.round(Math.min(12000000, Math.max(1200000, px*2.4)));
+    if(g.limitBytes && segSec){
+      var fit=Math.round(g.limitBytes*8*0.85/segSec*(g.speed||1));
+      vbr=Math.min(vbr, Math.max(600000, fit));
+    }
+  }
+  return { start:g.start, dur:dur, segSec:segSec, speed:g.speed||1,
+           audio:g.audio, vbr:vbr, limitBytes:g.limitBytes };
+}
+
+function recordSegment(video, stream, mime, t0, t1, p){
+  return new Promise(function(resolve, reject){
+    var opts={mimeType:mime};
+    if(p.vbr) opts.videoBitsPerSecond=p.vbr;
+    if(p.audio) opts.audioBitsPerSecond=128000;
+    var rec;
+    try{ rec=new MediaRecorder(stream, opts); }
+    catch(e1){
+      try{ rec=new MediaRecorder(stream, {mimeType:mime}); }
+      catch(e2){ reject(new Error('녹화를 시작할 수 없습니다')); return; }
+    }
+    var chunks=[], size=0, done=false, reason='time', timer=null, budget=p.limitBytes? p.limitBytes*0.94 : 0;
+    function stopNow(why){
+      if(done) return;
+      done=true; reason=why;
+      if(timer){ clearInterval(timer); timer=null; }
+      try{ rec.stop(); }catch(_){ }
+    }
+    rec.ondataavailable=function(ev){
+      if(ev.data && ev.data.size){ chunks.push(ev.data); size+=ev.data.size; }
+      if(budget && size>=budget) stopNow('size');
+    };
+    rec.onerror=function(){ stopNow('error'); };
+    rec.onstop=function(){
+      if(timer){ clearInterval(timer); timer=null; }
+      var blob=new Blob(chunks, {type:mime.split(';')[0]});
+      resolve({blob:blob, endedAt:video.currentTime, reason:reason,
+               ended:(video.ended || video.currentTime>=(video.duration||1e9)-0.05)});
+    };
+    timer=setInterval(function(){
+      if(isCancelled()){ stopNow('cancel'); return; }
+      if(video.ended){ stopNow('end'); return; }
+      if(video.currentTime>=t1-0.02) stopNow('time');
+    }, 60);
+    try{ rec.start(300); }catch(e3){ reject(new Error('녹화를 시작할 수 없습니다')); return; }
+  });
+}
+
+async function convertItemVideo(it, g, onProgress, onSegmentAdded){
+  var mime=pickVideoMime();
+  if(!mime) throw new Error('이 브라우저는 동영상 저장을 지원하지 않습니다');
+  var isWebm=mime.indexOf('webm')>=0;
+  var ext=isWebm?'.webm':'.mp4';
+  var p=planVideo(it, g);
+  if(p.dur<=0.05) throw new Error('자를 구간이 없습니다 (시작 시간 확인)');
+  var base=(it.file.name||'video').replace(/\.[^.]+$/,'').slice(0,40)||'clip';
+
+  var video=document.createElement('video');
+  video.playsInline=true; video.preload='auto'; video.src=it.url;
+  if(!p.audio) video.muted=true;
+  var ac=null, stream=null;
+  try{
+    await videoReady(video);
+    if(typeof video.captureStream!=='function' && typeof video.mozCaptureStream!=='function')
+      throw new Error('이 브라우저는 동영상 캡처를 지원하지 않습니다');
+    var raw = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+    stream=new MediaStream();
+    raw.getVideoTracks().forEach(function(t){ stream.addTrack(t); });
+    if(p.audio){
+      var routed=false;
+      try{
+        var AC=window.AudioContext||window.webkitAudioContext;
+        if(AC){
+          ac=new AC();
+          var srcNode=ac.createMediaElementSource(video);
+          var dest=ac.createMediaStreamDestination();
+          srcNode.connect(dest);            /* 스피커에 연결하지 않아 소리 없이 처리됨 */
+          dest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+          routed=dest.stream.getAudioTracks().length>0;
+          if(ac.resume) await ac.resume();
+        }
+      }catch(e){ routed=false; }
+      if(!routed) raw.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+    }
+
+    try{ video.playbackRate=p.speed; }catch(_){ }
+    await seekTo(video, p.start);
+    var endAll=p.start+p.dur;
+    var playing=video.play();
+    if(playing && playing.catch) { try{ await playing; }catch(e){ throw new Error('재생을 시작할 수 없습니다'); } }
+
+    var t=video.currentTime, guard=0;
+    var effBps=((p.vbr||2000000)+(p.audio?128000:0))*1.15;  /* 실제 기록 속도로 계속 보정 */
+    while(t < endAll-0.15 && it.outputs.length<MAXSEG){
+      if(isCancelled()) throw CANCEL;
+      var segEnd = p.segSec ? Math.min(endAll, t+p.segSec) : endAll;
+      if(p.limitBytes){
+        var bySize=p.limitBytes*0.88*8/effBps*p.speed;
+        segEnd=Math.min(segEnd, t+Math.max(0.5, bySize));
+      }
+      var r=await recordSegment(video, stream, mime, t, segEnd, p);
+      var t1=Math.min(endAll, Math.max(t, r.endedAt));
+      var span=Math.max(0.05, t1-t);
+      var data=new Uint8Array(await r.blob.arrayBuffer());
+      if(isWebm) data=fixWebmDuration(data, span/p.speed*1000);
+      var blob=new Blob([data], {type:mime.split(';')[0]});
+      var wall=span/p.speed;
+      if(wall>0.4) effBps=Math.max(200000, blob.size*8/wall*1.08);
+      var over = p.limitBytes ? blob.size>p.limitBytes : false;
+      it.outputs.push({
+        kind:'video', blob:blob, size:blob.size, w:it.vw, h:it.vh,
+        frames:0, t0:t, t1:t1, over:over, url:null,
+        name: base+'_'+pad2(it.outputs.length+1)+ext
+      });
+      onSegmentAdded();
+      onProgress(Math.min(0.99, (t1-p.start)/p.dur));
+      if(r.reason==='cancel') throw CANCEL;
+      if(r.ended) break;
+      t=t1;
+      if(++guard>MAXSEG+2) break;
+      if(video.paused && t<endAll-0.15){ try{ await video.play(); }catch(e){ break; } }
+    }
+    if(it.outputs.length>=MAXSEG) it.warn='조각이 너무 많아 '+MAXSEG+'개에서 멈췄습니다';
+    if(it.outputs.length===1) it.outputs[0].name=base+ext;
+    var overN=it.outputs.filter(function(o){ return o.over; }).length;
+    if(overN) it.warn=(it.warn?it.warn+' · ':'')+overN+'개 조각이 크기 제한을 넘었습니다';
+    onProgress(1);
+    if(!it.outputs.length) throw new Error('결과를 만들지 못했습니다');
+  } finally {
+    try{ video.pause(); }catch(_){ }
+    try{ if(stream) stream.getTracks().forEach(function(t){ t.stop(); }); }catch(_){ }
+    try{ if(ac && ac.close) ac.close(); }catch(_){ }
+    video.removeAttribute('src');
+    try{ video.load(); }catch(_){ }
+  }
+}
+
+/* ================================================================
+   개별 파일 변환
+================================================================ */
+async function convertItem(it, g, onProgress, onSegmentAdded){
+  var p=planFor(it, g);
+  if(p.dur<=0) throw new Error('변환할 구간이 없습니다 (시작 시간 확인)');
+  var video=document.createElement('video');
+  video.muted=true; video.playsInline=true; video.preload='auto';
+  video.src=it.url;
+  var base=(it.file.name||'video').replace(/\.[^.]+$/,'').slice(0,40)||'animation';
+
+  function addSegment(data, info, w, h){
+    var blob=new Blob([data], {type:'image/webp'});
+    var t0=p.start+info.startSlot/p.fps, t1=p.start+info.endSlot/p.fps;
+    it.outputs.push({
+      kind:'webp', blob:blob, size:blob.size, frames:info.frames, w:w, h:h,
+      t0:t0, t1:t1, over:info.over, url:null,
+      name: p.split ? base+'_'+pad2(info.index+1)+'.webp' : base+'_'+w+'x'+h+'.webp'
+    });
+    onSegmentAdded();
+  }
+
+  try{
+    await videoReady(video);
+    onProgress(0.02);
+
+    if(p.split){
+      /* 분할 모드: 품질은 유지하고 크기·길이에 맞춰 조각냄 */
+      var differ=makeDiffer(p.w, p.h, p.optimize);
+      var seg=Segmenter({
+        w:p.w, h:p.h, loop:p.loop, baseDurMs:p.baseDurMs,
+        maxSlots:p.segFrames,
+        byteBudget: p.limitBytes ? p.limitBytes-64 : 0,
+        onSegment: function(data, info){ addSegment(data, info, p.w, p.h); }
+      });
+      var qc=makeQC(p.quality, 30, p.quality, 0);
+      var lastSlot=await captureFrames(video, p, {w:p.w,h:p.h}, qc,
+        function(done,total){ onProgress(0.03+0.95*(done/total)); },
+        function(fr){ return seg.push(fr); }, differ);
+      seg.finish(Math.max(1,lastSlot));
+      if(seg.stopped()) it.warn='조각이 너무 많아 '+MAXSEG+'개에서 멈췄습니다';
+      else if(p.trimmed) it.warn='영상이 길어 앞부분만 변환했습니다';
+      var over=it.outputs.filter(function(o){ return o.over; }).length;
+      if(over) it.warn=(it.warn?it.warn+' · ':'')+over+'개 조각이 크기 제한을 넘었습니다';
+    } else {
+      /* 단일 파일 모드: 크기 제한에 맞춰 품질/해상도를 낮춤 */
+      var tune=await pickTune(video, p);
+      var usedQ=tune.q, fw=tune.w, fh=tune.h, attempt=0;
+      while(true){
+        if(isCancelled()) throw CANCEL;
+        clearOutputs(it);
+        var d2=makeDiffer(fw, fh, p.optimize);
+        var qc2=makeQC(usedQ, 30, p.quality, p.limitBytes ? p.limitBytes*0.90/p.frames : 0);
+        var seg2=Segmenter({
+          w:fw, h:fh, loop:p.loop, baseDurMs:p.baseDurMs,
+          maxSlots:Infinity, byteBudget:0,
+          onSegment:(function(w,h){ return function(data,info){ addSegment(data,info,w,h); }; })(fw,fh)
+        });
+        var last2=await captureFrames(video, p, {w:fw,h:fh}, qc2,
+          function(done,total){ onProgress(0.04+0.92*(done/total)); },
+          function(fr){ return seg2.push(fr); }, d2);
+        seg2.finish(Math.max(1,last2));
+        var out0=it.outputs[0];
+        if(!out0) throw new Error('프레임을 얻지 못했습니다');
+        if(!p.limitBytes || out0.size<=p.limitBytes || attempt>=2) {
+          if(p.limitBytes && out0.size>p.limitBytes)
+            it.warn='크기 제한('+fmtSize(p.limitBytes)+')을 초과했습니다 — 분할을 켜보세요';
+          if(p.trimmed) it.warn=(it.warn?it.warn+' · ':'')+'영상이 길어 앞부분만 변환했습니다';
+          break;
+        }
+        attempt++;
+        var ratio=(p.limitBytes*0.85)/out0.size;
+        if(usedQ>32) usedQ=Math.max(30, Math.floor(usedQ*Math.pow(ratio,0.7)));
+        else {
+          var nw=Math.max(160, Math.round(fw*Math.sqrt(ratio)));
+          if(nw>=fw) nw=Math.round(fw*0.85);
+          fh=Math.max(2, Math.round(fh*nw/fw)); fw=Math.max(2,nw);
+        }
+        onProgress(0.04);
+      }
+    }
+    onProgress(1);
+    if(!it.outputs.length) throw new Error('결과를 만들지 못했습니다');
+  } finally {
+    try{ video.pause(); }catch(_){ }
+    video.removeAttribute('src');
+    try{ video.load(); }catch(_){ }
+  }
+}
+
+/* ================================================================
+   큐 실행
+================================================================ */
+function updateOverall(){
+  var targets=items.filter(function(it){
+    return it.status==='wait'||it.status==='run'||it.status==='done'||it.status==='fail'||it.status==='cancel'; });
+  if(!targets.length) return;
+  var sum=0, done=0, segs=0;
+  targets.forEach(function(it){
+    segs+=it.outputs.length;
+    if(it.status==='done'||it.status==='fail'||it.status==='cancel'){ sum+=1; done++; }
+    else if(it.status==='run') sum+=it.progress;
+  });
+  barFill.style.width=Math.round(sum/targets.length*100)+'%';
+  pCount.textContent=done+' / '+targets.length+(segs?' · '+segs+'조각':'');
+  var running=targets.filter(function(it){ return it.status==='run'; });
+  pLabel.textContent = running.length
+    ? running.map(function(it){ return it.file.name; }).join(', ')
+    : '준비 중';
+}
+
+convertBtn.addEventListener('click', async function(){
+  if(converting) return;
+  var targets=readyItems();
+  if(!targets.length) return;
+  clearErr();
+  var g=getGlobalSettings();
+  converting=true; cancelAll=false;
+  convertBtn.disabled=true;
+  resultCard.classList.remove('show');
+  progressCard.classList.add('show');
+  barFill.style.width='0%';
+  pTitle.textContent = (g.outMode==='video' ? '자르는 중… ' : '변환 중… ')
+    + (targets.length>1 ? '('+targets.length+'개 파일)' : '');
+  targets.forEach(function(it){
+    it.status='wait'; it.progress=0; it.warn=''; it.err=''; clearOutputs(it);
+  });
+  renderList(); updateOverall();
+
+  try{ if(navigator.wakeLock) wakeLock=await navigator.wakeLock.request('screen'); }catch(_){ }
+
+  var idx=0, conc=Math.min(g.outMode==='video'?1:g.conc, targets.length);
+  async function runner(){
+    while(true){
+      var i=idx++;
+      if(i>=targets.length) return;
+      var it=targets[i];
+      if(cancelAll){ it.status='cancel'; updateItemRow(it); updateOverall(); continue; }
+      it.status='run'; updateItemRow(it);
+      try{
+        var fn = (g.outMode==='video') ? convertItemVideo : convertItem;
+        await fn(it, g, function(f){
+          it.progress=Math.min(1,f); updateItemRow(it); updateOverall();
+        }, function(){ updateItemRow(it); updateOverall(); });
+        it.status='done';
+      }catch(e){
+        var cancelled=(e===CANCEL || (e&&e.message==='__cancel__'));
+        if(it.outputs.length){
+          /* 도중에 멈췄어도 이미 만든 조각은 살려둠 */
+          it.status='done';
+          it.warn=(cancelled?'취소 전까지':'중간에 오류가 나서')+' '+it.outputs.length+'조각만 만들었습니다';
+        } else if(cancelled){ it.status='cancel'; }
+        else { it.status='fail'; it.err=(e&&e.message)?e.message:String(e); }
+      }
+      updateItemRow(it); updateOverall();
+    }
+  }
+  var runners=[];
+  for(var c=0;c<conc;c++) runners.push(runner());
+  await Promise.all(runners);
+
+  try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(_){ }
+  converting=false;
+  progressCard.classList.remove('show');
+  renderList(); refreshUI();
+  showResults();
+});
+
+$('cancelBtn').addEventListener('click', function(){ cancelAll=true; });
+
+/* ================================================================
+   결과
+================================================================ */
+function doneItems(){ return items.filter(function(it){ return it.outputs.length>0; }); }
+function allOutputs(){
+  var out=[];
+  doneItems().forEach(function(it){ it.outputs.forEach(function(o){ out.push(o); }); });
+  return out;
+}
+
+function showResults(){
+  var done=doneItems();
+  var failed=items.filter(function(it){ return it.status==='fail'; });
+  if(!done.length){
+    if(failed.length) showErr('변환에 실패했습니다: '+failed[0].err);
+    return;
+  }
+  resultList.innerHTML='';
+  var total=0, count=0;
+  done.forEach(function(it){
+    var grp=document.createElement('div'); grp.className='rgroup';
+    if(done.length>1 || it.outputs.length>1){
+      var gn=document.createElement('p'); gn.className='gname';
+      gn.textContent=it.file.name+' → '+it.outputs.length+'개';
+      grp.appendChild(gn);
+    }
+    if(it.warn){
+      var wl0=document.createElement('div'); wl0.className='ritem'; wl0.style.padding='8px 10px';
+      wl0.innerHTML='<div class="warnline" style="margin:0">⚠ '+it.warn+'</div>';
+      grp.appendChild(wl0);
+    }
+    it.outputs.forEach(function(o){
+      total+=o.size; count++;
+      if(!o.url) o.url=URL.createObjectURL(o.blob);
+      var row=document.createElement('div'); row.className='ritem';
+      if(o.kind==='video'){
+        var vp=document.createElement('video');
+        vp.src=o.url; vp.controls=true; vp.playsInline=true; vp.preload='metadata';
+        row.appendChild(vp);
+      } else {
+        var a=document.createElement('a'); a.href=o.url; a.target='_blank';
+        var img=document.createElement('img'); img.src=o.url; img.alt='미리보기';
+        a.appendChild(img); row.appendChild(a);
+      }
+      var meta=document.createElement('div'); meta.className='meta';
+      var nm=document.createElement('div'); nm.className='name'; nm.textContent=o.name;
+      var dt=document.createElement('div'); dt.className='detail';
+      dt.textContent=fmtSize(o.size)+' · '+o.w+'×'+o.h
+        +(o.kind==='video' ? ' · '+fmtTime(o.t1-o.t0) : ' · '+o.frames+'프레임')
+        +' · '+clock(o.t0)+'~'+clock(o.t1);
+      meta.appendChild(nm); meta.appendChild(dt);
+      if(o.over){
+        var wl=document.createElement('div'); wl.className='warnline'; wl.textContent='⚠ 크기 제한 초과';
+        meta.appendChild(wl);
+      }
+      row.appendChild(meta);
+      var acts=document.createElement('div'); acts.className='racts';
+      var sv=document.createElement('button'); sv.className='p'; sv.textContent='저장';
+      sv.addEventListener('click', function(){ saveBlob(o.blob, o.name); });
+      var sh=document.createElement('button'); sh.textContent='공유';
+      sh.addEventListener('click', function(){ shareOutputs([o]); });
+      acts.appendChild(sv); acts.appendChild(sh);
+      row.appendChild(acts);
+      grp.appendChild(row);
+    });
+    resultList.appendChild(grp);
+  });
+  $('rSummary').innerHTML='<b>'+count+'개 파일</b> 완성 · 합계 <b>'+fmtSize(total)+'</b>'
+    +(failed.length? '<br><span style="color:var(--danger)">'+failed.length+'개 실패</span>':'');
+  $('saveAllBtn').textContent = count>1 ? '전체 저장 (ZIP, '+count+'개)' : 'WebP 저장';
+  resultCard.classList.add('show');
+  resultCard.scrollIntoView({behavior:'smooth'});
+}
+
+function saveBlob(blob, name){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+}
+
+function shareOutputs(list){
+  var files=list.map(function(o){ return new File([o.blob], o.name, {type:o.blob.type||'application/octet-stream'}); });
+  if(navigator.canShare && navigator.canShare({files:files})){
+    navigator.share({files:files, title:'WebP 애니메이션'}).catch(function(){});
+  } else {
+    showErr('이 브라우저는 파일 공유를 지원하지 않습니다. "저장"을 이용해 주세요.');
+  }
+}
+
+function uniqueNames(outs){
+  var used={}, names=[];
+  outs.forEach(function(o){
+    var n=o.name, i=1;
+    while(used[n]){ n=o.name.replace(/\.webp$/,'')+'('+(++i)+').webp'; }
+    used[n]=1; names.push(n);
+  });
+  return names;
+}
+
+$('saveAllBtn').addEventListener('click', async function(){
+  var outs=allOutputs();
+  if(!outs.length) return;
+  if(outs.length===1){ saveBlob(outs[0].blob, outs[0].name); return; }
+  var names=uniqueNames(outs), entries=[];
+  for(var i=0;i<outs.length;i++){
+    entries.push({name:names[i], data:new Uint8Array(await outs[i].blob.arrayBuffer())});
+  }
+  var kind=(outs[0].kind==='video')?'clips':'webp';
+  saveBlob(makeZip(entries), kind+'_'+entries.length+'files.zip');
+});
+
+$('shareAllBtn').addEventListener('click', function(){ shareOutputs(allOutputs()); });
+
+$('againBtn').addEventListener('click', function(){
+  resultCard.classList.remove('show');
+  items.forEach(function(it){
+    if(it.status==='done'||it.status==='fail'||it.status==='cancel'){ clearOutputs(it); it.status='ready'; it.warn=''; }
+  });
+  renderList(); refreshUI();
+  $('settingsCard').scrollIntoView({behavior:'smooth'});
+});
+
+/* ================================================================
+   ZIP (무압축 저장 방식 — WebP는 이미 압축되어 있음)
+================================================================ */
+var crcTable=(function(){
+  var t=new Int32Array(256);
+  for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[n]=c; }
+  return t;
+})();
+function crc32(u8){
+  var c=-1;
+  for(var i=0;i<u8.length;i++) c=crcTable[(c^u8[i])&255]^(c>>>8);
+  return (c^-1)>>>0;
+}
+function makeZip(entries){
+  var enc=new TextEncoder(), parts=[], central=[], offset=0;
+  var now=new Date();
+  var dosTime=((now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1))&0xffff;
+  var dosDate=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate())&0xffff;
+  entries.forEach(function(en){
+    var nameB=enc.encode(en.name), crc=crc32(en.data), sz=en.data.length;
+    var lh=new Uint8Array(30+nameB.length), dv=new DataView(lh.buffer);
+    dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true); dv.setUint16(6,0x0800,true);
+    dv.setUint16(8,0,true); dv.setUint16(10,dosTime,true); dv.setUint16(12,dosDate,true);
+    dv.setUint32(14,crc,true); dv.setUint32(18,sz,true); dv.setUint32(22,sz,true);
+    dv.setUint16(26,nameB.length,true); dv.setUint16(28,0,true);
+    lh.set(nameB,30);
+    parts.push(lh, en.data);
+    var ch=new Uint8Array(46+nameB.length), cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true);
+    cv.setUint16(8,0x0800,true); cv.setUint16(10,0,true);
+    cv.setUint16(12,dosTime,true); cv.setUint16(14,dosDate,true);
+    cv.setUint32(16,crc,true); cv.setUint32(20,sz,true); cv.setUint32(24,sz,true);
+    cv.setUint16(28,nameB.length,true); cv.setUint32(42,offset,true);
+    ch.set(nameB,46);
+    central.push(ch);
+    offset+=lh.length+sz;
+  });
+  var cdSize=0; central.forEach(function(c){ cdSize+=c.length; });
+  var eocd=new Uint8Array(22), ev=new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true);
+  ev.setUint16(8,entries.length,true); ev.setUint16(10,entries.length,true);
+  ev.setUint32(12,cdSize,true); ev.setUint32(16,offset,true);
+  return new Blob(parts.concat(central,[eocd]),{type:'application/zip'});
+}
+
+applyModeUI();
+
+/* 테스트 훅 (자동 검증용) */
+window.__webpMaker={
+  addFiles:addFiles,
+  items:function(){ return items; },
+  start:function(){ convertBtn.click(); },
+  converting:function(){ return converting; },
+  encMode:function(){ return Enc.mode(); },
+  videoMime:pickVideoMime,
+  fixWebmDuration:fixWebmDuration,
+  results:function(){
+    return items.map(function(it){
+      return {
+        file:it.file.name, status:it.status, warn:it.warn, err:it.err,
+        outputs:it.outputs.map(function(o){
+          return {name:o.name, kind:o.kind, size:o.size, w:o.w, h:o.h, frames:o.frames,
+                  t0:o.t0, t1:o.t1, over:o.over, blob:o.blob};
+        })
+      };
+    });
+  }
+};
+})();
+</script>
+</body>
+</html>
