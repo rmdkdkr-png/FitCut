@@ -5,7 +5,7 @@
 **Cut it to fit.** Turn videos into animated WebP — or just split them — right in your browser,
 automatically sliced so every piece lands under your size limit.
 
-[**▶ Open FitCut**](https://YOUR_USERNAME.github.io/fitcut/) &nbsp;·&nbsp;
+[**▶ Open FitCut**](https://rmdkdkr-png.github.io/FitCut/) &nbsp;·&nbsp;
 [한국어 README](README.ko.md)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-4ade80)
