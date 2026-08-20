@@ -5,7 +5,7 @@
 **용량에 딱 맞게 자릅니다.** 동영상을 움직이는 WebP로 바꾸거나 그냥 잘라내되,
 정해둔 용량 제한에 맞춰 알아서 여러 조각으로 나눠줍니다. 전부 브라우저 안에서.
 
-[**▶ FitCut 열기**](https://YOUR_USERNAME.github.io/fitcut/) &nbsp;·&nbsp;
+[**▶ FitCut 열기**](https://rmdkdkr-png.github.io/fitcut/) &nbsp;·&nbsp;
 [English README](README.md)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-4ade80)
